@@ -1,2 +1,5 @@
-# go-event-sourcing-example
-Go CQRS + Event Sourcing example application
+# Go Event Sourcing Example
+
+Go CQRS + Event Sourcing example application.
+
+TBD
