@@ -14,6 +14,16 @@ services:
     networks:
       - go-event-sourcing-example
 
+  mongodb:
+    image: docker.io/bitnami/mongodb:4.4
+    container_name: go_event_sourcing_example_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - 'mongodb_data:/bitnami/mongodb'
+    networks:
+      - go-event-sourcing-example
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: go_event_sourcing_example_zookeeper

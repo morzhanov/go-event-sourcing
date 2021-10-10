@@ -6,6 +6,7 @@ type Config struct {
 	KafkaUri             string `mapstructure:"KAFKA_URI"`
 	KafkaTopic           string `mapstructure:"KAFKA_TOPIC"`
 	PsqlConnectionString string `mapstructure:"PSQL_CONNECTION_STRING"`
+	MongoDBUri           string `mapstructure:"MONGODB_URI"`
 }
 
 func NewConfig(path string, name string) (config *Config, err error) {

@@ -6,12 +6,11 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
-	"github.com/morzhanov/go-event-sourcing-example/internal/config"
 	"path/filepath"
 )
 
-func NewDb(c *config.Config) (*sqlx.DB, error) {
-	return sqlx.Connect("postgres", c.PsqlConnectionString)
+func NewDb(uri string) (*sqlx.DB, error) {
+	return sqlx.Connect("postgres", uri)
 }
 
 func RunMigrations(db *sqlx.DB, service string) error {
@@ -19,7 +18,7 @@ func RunMigrations(db *sqlx.DB, service string) error {
 	if err != nil {
 		return err
 	}
-	mPath, err := filepath.Abs(fmt.Sprintf("./internal/%s/migrations", service))
+	mPath, err := filepath.Abs("./internal/migrations")
 	if err != nil {
 		return err
 	}

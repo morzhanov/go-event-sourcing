@@ -2,7 +2,6 @@ package mq
 
 import (
 	"context"
-	"github.com/morzhanov/go-event-sourcing-example/internal/config"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -52,14 +51,14 @@ func (mq *mQ) Topic() string {
 	return mq.topic
 }
 
-func NewMq(c *config.Config, topic string) (res MQ, err error) {
-	conn, err := kafka.DialLeader(context.Background(), "tcp", c.KafkaUri, c.KafkaTopic, 0)
+func NewMq(uri string, topic string) (res MQ, err error) {
+	conn, err := kafka.DialLeader(context.Background(), "tcp", uri, topic, 0)
 	if err != nil {
 		return nil, err
 	}
 	msgQ := mQ{
 		conn,
-		c.KafkaUri,
+		uri,
 		topic,
 	}
 	if err := msgQ.createTopic(); err != nil {
