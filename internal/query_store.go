@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/morzhanov/go-event-sourcing-example/internal/mq"
-	"github.com/morzhanov/go-event-sourcing-example/internal/orders"
+	"github.com/morzhanov/go-event-sourcing-example/internal/orders/model"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -16,22 +17,18 @@ type querystore struct {
 }
 
 type QueryStore interface {
-	Get(id string) (*orders.Order, error)
+	Get(id string) (*model.Order, error)
+	GetAll() ([]*model.Order, error)
 }
 
-func (s *querystore) saveOrder(o orders.Order) {
-	_, err := s.db.Query(
-		`INSERT INTO orders (id, name, status)
-				VALUES (?, ?, ?)`, o.Id, o.Name, o.Status,
-	)
-	if err != nil {
+func (s *querystore) saveOrder(o model.Order) {
+	if _, err := s.db.Exec("INSERT INTO orders (id, name, status) VALUES ($1, $2, $3)", o.Id, o.Name, o.Status); err != nil {
 		fmt.Println(fmt.Errorf("error in query store saveOrder: %w", err))
 	}
 }
 
 func (s *querystore) processOrder(id string) {
-	_, err := s.db.Query("UPDATE orders SET status = 'processed' WHERE id = ?", id)
-	if err != nil {
+	if _, err := s.db.Exec("UPDATE orders SET status = 'processed' WHERE id = $1", id); err != nil {
 		fmt.Println(fmt.Errorf("error in processor processOrder: %w", err))
 	}
 }
@@ -40,7 +37,7 @@ func (s *querystore) processCommand(m *kafka.Message) {
 	command := string(m.Key)
 	data := m.Value
 	if command == "create_order" {
-		ent := orders.Order{}
+		ent := model.Order{}
 		if err := json.Unmarshal(data, &ent); err != nil {
 			fmt.Println(fmt.Errorf("error in query store processCommand: %w", err))
 		}
@@ -60,15 +57,31 @@ func (s *querystore) listenCommands() {
 		}
 		go s.processCommand(&m)
 	}
-
 }
 
-func (s *querystore) Get(id string) (*orders.Order, error) {
-	e := orders.Order{}
-	if err := s.db.QueryRow("SELECT * FROM orders WHERE id = ?", id).Scan(&e); err != nil {
+func (s *querystore) GetAll() ([]*model.Order, error) {
+	rows, err := s.db.Query("SELECT * FROM orders")
+	if err != nil {
 		return nil, err
 	}
-	return &e, nil
+
+	var res []*model.Order
+	for rows.Next() {
+		var id, name, status string
+		if err := rows.Scan(&id, &name, &status); err != nil {
+			return nil, err
+		}
+		res = append(res, &model.Order{id, name, status})
+	}
+	return res, nil
+}
+
+func (s *querystore) Get(id string) (*model.Order, error) {
+	var name, status string
+	if err := s.db.QueryRow("SELECT * FROM orders WHERE id = $1", id).Scan(&id, &name, &status); err != nil {
+		return nil, err
+	}
+	return &model.Order{id, name, status}, nil
 }
 
 func NewQueryStore(db *sqlx.DB, mq mq.MQ) QueryStore {

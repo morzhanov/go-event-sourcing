@@ -3,10 +3,16 @@ package internal
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/morzhanov/go-event-sourcing-example/internal/mq"
 	"github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+type command struct {
+	Name string
+	Data string
+}
 
 type commandstore struct {
 	coll *mongo.Collection
@@ -18,27 +24,40 @@ type CommandStore interface {
 }
 
 func (s *commandstore) sendEvent(command string, data interface{}) error {
-	w := kafka.Writer{Balancer: &kafka.LeastBytes{}}
-	js, err := json.Marshal(data)
-	if err != nil {
-		return err
+	str, ok := data.(string)
+	if !ok {
+		b, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		str = string(b)
 	}
 	m := kafka.Message{
 		Key:   []byte(command),
-		Value: js,
+		Value: []byte(str),
 	}
-	if err := w.WriteMessages(context.Background(), m); err != nil {
+	if _, err := s.mq.Conn().WriteMessages(m); err != nil {
 		return err
 	}
-	return w.Close()
+	return nil
 }
 
-func (s *commandstore) Add(command string, data interface{}) error {
-	_, err := s.coll.InsertOne(context.Background(), data)
+func (s *commandstore) Add(cmd string, data interface{}) error {
+	c := command{Name: cmd}
+	str, ok := data.(string)
+	if !ok {
+		b, err := json.Marshal(data)
+		str = string(b)
+		if err != nil {
+			return err
+		}
+	}
+	c.Data = str
+	_, err := s.coll.InsertOne(context.Background(), c)
 	if err != nil {
 		return err
 	}
-	return s.sendEvent(command, data)
+	return s.sendEvent(cmd, data)
 }
 
 func NewCommandStore(coll *mongo.Collection, mq mq.MQ) CommandStore {

@@ -2,18 +2,17 @@ package orders
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+
+	"github.com/morzhanov/go-event-sourcing-example/internal/orders/model"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/morzhanov/go-event-sourcing-example/internal"
-	"io/ioutil"
-	"net/http"
 )
-
-type Order struct {
-	Id     string `json:"id,omitempty" db:"id"`
-	Name   string `json:"name,omitempty" db:"name"`
-	Status string `json:"status,omitempty" db:"status"`
-}
 
 type service struct {
 	cs internal.CommandStore
@@ -24,19 +23,24 @@ type Service interface {
 	Listen() error
 }
 
+func handleHttpErr(c *gin.Context, err error) {
+	c.String(http.StatusInternalServerError, err.Error())
+	log.Println(fmt.Errorf("error in the handler: %w", err))
+}
+
 func (o *service) handleAddOrder(c *gin.Context) {
 	jsonData, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+
 		return
 	}
-	order := Order{}
+	order := model.Order{}
 	if err = json.Unmarshal(jsonData, &order); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		handleHttpErr(c, err)
 		return
 	}
 	if err := o.cs.Add("create_order", &order); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		handleHttpErr(c, err)
 		return
 	}
 	c.Status(http.StatusCreated)
@@ -45,17 +49,26 @@ func (o *service) handleAddOrder(c *gin.Context) {
 func (o *service) handleProcessOrder(c *gin.Context) {
 	id := c.Param("id")
 	if err := o.cs.Add("process_order", id); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		handleHttpErr(c, err)
 		return
 	}
 	c.Status(http.StatusOK)
+}
+
+func (o *service) handleGetOrders(c *gin.Context) {
+	res, err := o.qs.GetAll()
+	if err != nil {
+		handleHttpErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
 }
 
 func (o *service) handleGetOrder(c *gin.Context) {
 	id := c.Param("id")
 	res, err := o.qs.Get(id)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		handleHttpErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, res)
@@ -70,6 +83,7 @@ func (o *service) Listen() error {
 	r := gin.Default()
 	r.POST("/", o.handleAddOrder)
 	r.POST("/:id", o.handleProcessOrder)
+	r.GET("/", o.handleGetOrders)
 	r.GET("/:id", o.handleGetOrder)
 	return r.Run()
 }

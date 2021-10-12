@@ -1,35 +1,44 @@
 package main
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/morzhanov/go-event-sourcing-example/internal"
 	"github.com/morzhanov/go-event-sourcing-example/internal/config"
 	"github.com/morzhanov/go-event-sourcing-example/internal/mongodb"
 	"github.com/morzhanov/go-event-sourcing-example/internal/mq"
 	"github.com/morzhanov/go-event-sourcing-example/internal/orders"
 	"github.com/morzhanov/go-event-sourcing-example/internal/psql"
-	"log"
 )
 
-func handleErr(err error) {
+const initErr = "initialization error in step %s: %w"
+
+func handleErr(step string, err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf(initErr, step, err))
 	}
 }
 
 func main() {
 	c, err := config.NewConfig("./config", ".env")
-	handleErr(err)
+	handleErr("config", err)
+
 	msgQ, err := mq.NewMq(c.KafkaUri, c.KafkaTopic)
-	handleErr(err)
+	handleErr("mq", err)
+
 	coll, err := mongodb.NewMongoDB(c.MongoDBUri)
-	handleErr(err)
+	handleErr("mongodb", err)
+
 	db, err := psql.NewDb(c.PsqlConnectionString)
-	err = psql.RunMigrations(db, "orders")
-	handleErr(err)
-	handleErr(err)
+	handleErr("psql", err)
+	err = psql.RunMigrations(db)
+	handleErr("psql migrations", err)
+
 	cs := internal.NewCommandStore(coll, msgQ)
 	qs := internal.NewQueryStore(db, msgQ)
 	service := orders.NewService(cs, qs)
-	err = service.Listen()
-	handleErr(err)
+	if err = service.Listen(); err != nil {
+		log.Fatal(err)
+	}
 }

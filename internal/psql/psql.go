@@ -2,18 +2,19 @@ package psql
 
 import (
 	"fmt"
+	"path/filepath"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
-	"path/filepath"
 )
 
 func NewDb(uri string) (*sqlx.DB, error) {
 	return sqlx.Connect("postgres", uri)
 }
 
-func RunMigrations(db *sqlx.DB, service string) error {
+func RunMigrations(db *sqlx.DB) error {
 	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
 	if err != nil {
 		return err

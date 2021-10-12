@@ -2,10 +2,9 @@ package processor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
 	"github.com/morzhanov/go-event-sourcing-example/internal/mq"
-	"github.com/morzhanov/go-event-sourcing-example/internal/orders"
 )
 
 type processor struct {
@@ -27,11 +26,7 @@ func (s *processor) Run() {
 			fmt.Println(fmt.Errorf("error in processor Run: %w", err))
 			continue
 		}
-		ent := orders.Order{}
-		if err := json.Unmarshal(m.Value, &ent); err != nil {
-			fmt.Println(fmt.Errorf("error in processor Run: %w", err))
-		}
-		fmt.Printf("Processing command: %s with data id = %s", m.Key, ent.Id)
+		fmt.Printf("Processing command: %s with data id = %s", m.Key, m.Value)
 	}
 }
 
